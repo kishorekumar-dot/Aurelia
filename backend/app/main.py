@@ -1,5 +1,9 @@
-from fastapi import FastAPI
+from pathlib import Path
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from app.api.routes import health, documents, reviews, rules, auth, findings, reports, policies
 from app.core.config import settings
 from app.database.database import engine, Base
@@ -35,6 +39,23 @@ app.include_router(documents.router, prefix=f"{settings.API_V1_STR}/documents", 
 app.include_router(reviews.router, prefix=f"{settings.API_V1_STR}/reviews", tags=["Reviews"])
 app.include_router(findings.router, prefix=f"{settings.API_V1_STR}/findings", tags=["Findings"])
 app.include_router(reports.router, prefix=f"{settings.API_V1_STR}/reports", tags=["Reports"])
+
+# --------------- Serve built React frontend ---------------
+FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+
+if FRONTEND_DIR.is_dir():
+    # Serve static assets (JS, CSS, images, etc.)
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIR / "assets"), name="frontend-assets")
+
+    # Catch-all: serve index.html for any non-API route (SPA client-side routing)
+    @app.get("/{full_path:path}")
+    async def serve_spa(request: Request, full_path: str):
+        # If the requested file exists in dist, serve it (e.g. favicon, icons)
+        file_path = FRONTEND_DIR / full_path
+        if full_path and file_path.is_file():
+            return FileResponse(file_path)
+        # Otherwise serve index.html for client-side routing
+        return FileResponse(FRONTEND_DIR / "index.html")
 
 
 if __name__ == "__main__":

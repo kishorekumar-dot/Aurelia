@@ -1,3 +1,6 @@
+# Auto-sync script
+auto_git_sync.ps1
+
 # Virtual environment
 .venv/
 venv/
