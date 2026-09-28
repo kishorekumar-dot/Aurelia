@@ -1,0 +1,4 @@
+/* App.css - minimal reset, overrides handled by index.css */
+* {
+  box-sizing: border-box;
+}

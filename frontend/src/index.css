@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    /* Exact Palette Specification */
+    --bg-black: #050508;
+    --bg-navy: #0A0B18;
+    --bg-paper: #0D0E1C;
+    --bg-surface: #111224;
+
+    /* Accents */
+    --gold-warm: #F5A623;
+    --amber-bright: #FF7A18;
+    --gold-hairline: rgba(245, 166, 35, 0.25);
+    --gold-border: rgba(212, 175, 55, 0.18);
+
+    --violet-cool: #7B6CFF;
+    --ice-blue: #6EC8FF;
+    --violet-glow: rgba(123, 108, 255, 0.25);
+
+    --terracotta: #C45C4A;
+    --terracotta-hover: #D46A58;
+
+    /* Typography Families */
+    --font-headline: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+  }
+
+  body {
+    background-color: var(--bg-black);
+    color: #E8E8EE;
+    font-family: var(--font-body);
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-headline);
+    font-weight: 300;
+  }
+
+  code, pre, .font-mono {
+    font-family: var(--font-mono);
+  }
+}
+
+/* Custom Typography Utilities */
+.font-headline {
+  font-family: var(--font-headline);
+}
+
+.font-body {
+  font-family: var(--font-body);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.nav-tracking {
+  letter-spacing: 0.18em;
+}
+
+/* Mounted Document Frame (Double Hairline) */
+.mounted-document {
+  background-color: #0A0B18;
+  border: 1px solid rgba(245, 166, 35, 0.22);
+  box-shadow: 0 0 0 4px #050508, 0 0 0 5px rgba(255, 255, 255, 0.05);
+  position: relative;
+}
+
+.mounted-document-subtle {
+  background-color: #090A14;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px #050508, 0 0 0 4px rgba(245, 166, 35, 0.12);
+}
+
+/* Hairline Gold Divider */
+.gold-hairline {
+  border-color: rgba(245, 166, 35, 0.2);
+}
+
+/* Terracotta Pill Button */
+.btn-terracotta {
+  background-color: var(--terracotta);
+  color: #FFFFFF;
+  border-radius: 9999px;
+  font-family: var(--font-headline);
+  font-size: 0.8125rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 500;
+  transition: all 400ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-terracotta:hover {
+  background-color: var(--terracotta-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px -4px rgba(196, 92, 74, 0.35);
+}
+
+/* Cinematic Slow Motion */
+* {
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
