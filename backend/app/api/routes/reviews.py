@@ -8,6 +8,7 @@ from datetime import datetime
 from app.database.database import get_db, SessionLocal
 from app.database.models import Review, Document, Rule, PolicySnapshot, Finding, Evidence, Decision, User
 from app.services.pipeline import ReviewPipeline
+from app.api.deps import get_current_user, get_current_lecturer
 
 router = APIRouter()
 
@@ -71,7 +72,10 @@ def run_pipeline_task(review_id: int):
         db.close()
 
 @router.get("", response_model=List[Dict[str, Any]])
-def get_reviews(db: Session = Depends(get_db)):
+def get_reviews(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     reviews = db.query(Review).order_by(Review.created_at.desc()).all()
     res = []
     for r in reviews:
@@ -95,6 +99,7 @@ def get_reviews(db: Session = Depends(get_db)):
 def create_review(
     req: ReviewCreateRequest,
     background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_lecturer),
     db: Session = Depends(get_db)
 ):
     doc = db.query(Document).filter(Document.id == req.document_id).first()
@@ -111,8 +116,7 @@ def create_review(
     if rule:
         policy_snap = db.query(PolicySnapshot).filter(PolicySnapshot.rule_id == rule.id).first()
 
-    lecturer = db.query(User).first()
-    lecturer_id = lecturer.id if lecturer else 1
+    lecturer_id = current_user.id
 
     review = Review(
         reviewer_id=lecturer_id,
@@ -139,7 +143,11 @@ def create_review(
     }
 
 @router.get("/{review_id}", response_model=ReviewDetailResponse)
-def get_review(review_id: int, db: Session = Depends(get_db)):
+def get_review(
+    review_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     review = db.query(Review).filter(Review.id == review_id).first()
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
@@ -200,7 +208,11 @@ def get_review(review_id: int, db: Session = Depends(get_db)):
     )
 
 @router.get("/{review_id}/events")
-def get_review_events(review_id: int, db: Session = Depends(get_db)):
+def get_review_events(
+    review_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     review = db.query(Review).filter(Review.id == review_id).first()
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
@@ -237,14 +249,14 @@ def get_review_events(review_id: int, db: Session = Depends(get_db)):
 def create_lecturer_decision(
     review_id: int,
     req: DecisionRequest,
+    current_user: User = Depends(get_current_lecturer),
     db: Session = Depends(get_db)
 ):
     review = db.query(Review).filter(Review.id == review_id).first()
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
 
-    lecturer = db.query(User).first()
-    lecturer_id = lecturer.id if lecturer else 1
+    lecturer_id = current_user.id
 
     decision = Decision(
         review_id=review.id,
@@ -278,6 +290,7 @@ class PublishRequest(BaseModel):
 def publish_review(
     review_id: int,
     req: Optional[PublishRequest] = None,
+    current_user: User = Depends(get_current_lecturer),
     db: Session = Depends(get_db)
 ):
     review = db.query(Review).filter(Review.id == review_id).first()
@@ -305,9 +318,11 @@ def publish_review(
     }
 
 @router.post("/{review_id}/run")
+@router.post("/{review_id}/reanalyze")
 def rerun_review(
     review_id: int,
     background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_lecturer),
     db: Session = Depends(get_db)
 ):
     review = db.query(Review).filter(Review.id == review_id).first()
@@ -326,7 +341,11 @@ def rerun_review(
     }
 
 @router.get("/{review_id}/summary")
-def get_review_summary(review_id: int, db: Session = Depends(get_db)):
+def get_review_summary(
+    review_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     review = db.query(Review).filter(Review.id == review_id).first()
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")

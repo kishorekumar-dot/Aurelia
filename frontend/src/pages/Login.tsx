@@ -2,52 +2,56 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ParticleOrb3D } from '../components/ParticleOrb3D';
+import { api } from '../services/api';
+import { TOKEN_KEY, AUTH_KEY, USER_KEY } from '../utils/auth';
 
 export default function Login() {
   const navigate = useNavigate();
   const [selectedRole, setSelectedRole] = useState<'LECTURER' | 'STUDENT'>('LECTURER');
-  const [email, setEmail] = useState('dr.chen@cambridge.edu');
-  const [password, setPassword] = useState('academic123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleRoleChange = (role: 'LECTURER' | 'STUDENT') => {
     setSelectedRole(role);
-    if (role === 'LECTURER') {
-      setEmail('dr.chen@cambridge.edu');
-    } else {
-      setEmail('alex.rivera@student.cambridge.edu');
-    }
+    setEmail('');
+    setError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 500));
-    
-    localStorage.setItem('aurelia_auth', JSON.stringify({ 
-      email, 
-      role: selectedRole,
-      name: selectedRole === 'LECTURER' ? 'Dr. Evelyn Chen' : 'Alex Rivera'
-    }));
+    setError(null);
 
-    if (selectedRole === 'LECTURER') {
-      navigate('/dashboard');
-    } else {
-      navigate('/student');
-    }
-  };
+    try {
+      const data = await api.login(email.trim(), password, selectedRole.toLowerCase());
+      // Store token and user info using canonical keys
+      localStorage.setItem(TOKEN_KEY, data.access_token);
+      const authObj = {
+        id: data.user.id,
+        email: data.user.email,
+        role: data.user.role.toUpperCase(),
+        name: data.user.full_name || data.user.username,
+        department: data.user.department || ''
+      };
+      localStorage.setItem(AUTH_KEY, JSON.stringify(authObj));
+      localStorage.setItem(USER_KEY, JSON.stringify({
+        ...data.user,
+        role: data.user.role.toUpperCase(),
+      }));
 
-  const handleQuickDemo = (role: 'LECTURER' | 'STUDENT') => {
-    const emailToSet = role === 'LECTURER' ? 'dr.chen@cambridge.edu' : 'alex.rivera@student.cambridge.edu';
-    localStorage.setItem('aurelia_auth', JSON.stringify({ 
-      email: emailToSet, 
-      role,
-      name: role === 'LECTURER' ? 'Dr. Evelyn Chen' : 'Alex Rivera'
-    }));
-    if (role === 'LECTURER') {
-      navigate('/dashboard');
-    } else {
-      navigate('/student');
+      const role = data.user.role.toUpperCase();
+      if (role === 'STUDENT') {
+        navigate('/student');
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Authentication failed';
+      setError(msg);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -116,7 +120,9 @@ export default function Login() {
               type="email"
               required
               value={email}
+              maxLength={254}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder={selectedRole === 'LECTURER' ? 'faculty@university.edu' : 'student@university.edu'}
               className="w-full bg-[#080914] border border-[rgba(245,166,35,0.22)] rounded-none px-4 py-2.5 text-white font-mono text-xs focus:outline-none focus:border-[#F5A623] transition-colors"
             />
           </div>
@@ -129,10 +135,19 @@ export default function Login() {
               type="password"
               required
               value={password}
+              maxLength={128}
+              autoComplete="current-password"
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
               className="w-full bg-[#080914] border border-[rgba(245,166,35,0.22)] rounded-none px-4 py-2.5 text-white font-mono text-xs focus:outline-none focus:border-[#F5A623] transition-colors"
             />
           </div>
+
+          {error && (
+            <div className="p-3 border border-red-500/30 bg-red-500/10 font-mono text-xs text-red-400">
+              {error}
+            </div>
+          )}
 
           <button
             type="submit"
@@ -143,27 +158,14 @@ export default function Login() {
           </button>
         </form>
 
-        {/* Quick Demo Access Bar */}
-        <div className="pt-4 border-t border-[rgba(255,255,255,0.06)] space-y-2">
-          <span className="font-mono text-[0.65rem] text-[#6A6B78] uppercase tracking-wider block text-center">
-            Instant Demo Sign-in:
-          </span>
-          <div className="grid grid-cols-2 gap-2 font-mono text-[0.68rem]">
-            <button
-              type="button"
-              onClick={() => handleQuickDemo('LECTURER')}
-              className="p-2 border border-[#F5A623]/30 bg-[#F5A623]/5 text-[#F5A623] hover:bg-[#F5A623]/15 transition-colors text-center"
-            >
-              Dr. Evelyn Chen<br /><span className="text-[0.6rem] text-[#8A8B98]">(Lecturer)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickDemo('STUDENT')}
-              className="p-2 border border-[#7B6CFF]/30 bg-[#7B6CFF]/5 text-[#7B6CFF] hover:bg-[#7B6CFF]/15 transition-colors text-center"
-            >
-              Alex Rivera<br /><span className="text-[0.6rem] text-[#8A8B98]">(Candidate)</span>
-            </button>
-          </div>
+        {/* Register Link */}
+        <div className="pt-3 border-t border-[rgba(255,255,255,0.06)] text-center">
+          <p className="font-mono text-[0.65rem] text-[#6A6B78]">
+            New to Aurelia?{' '}
+            <Link to="/register" className="text-[#F5A623] hover:underline">
+              Register your institutional account
+            </Link>
+          </p>
         </div>
       </div>
 

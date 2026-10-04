@@ -1,4 +1,5 @@
 import os
+import bcrypt
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from app.database.database import engine, Base, SessionLocal
@@ -16,11 +17,11 @@ def seed_db():
 
         print("Seeding database with academic review data...")
 
-        # 1. Create Lecturer User
+        hashed_pw = bcrypt.hashpw(b"academic123", bcrypt.gensalt(12)).decode("utf-8")
         lecturer = User(
             username="dr.chen",
             email="dr.chen@cambridge.edu",
-            hashed_password="hashed_academic123", # Simple hashed string for mock auth
+            hashed_password=hashed_pw,
             role="lecturer",
             full_name="Dr. Evelyn Chen",
             department="Department of Computer Science & Technology",

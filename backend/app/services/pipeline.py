@@ -269,20 +269,21 @@ class ReviewPipeline:
             {
                 "agent": "innovation",
                 "finding_code": "F-I01",
-                "title": "Novel Multi-Agent Policy Synthesis",
+                "title": "Claimed Multi-Agent Policy Synthesis Contribution",
                 "severity": "info",
-                "claim": "The paper introduces an innovative adaptive policy compiler that dynamically generates agent prompts from lecturer rubrics.",
+                "claim": "The paper claims an adaptive policy compiler contribution. Originality and significance evaluation requires lecturer review.",
                 "quote": "Converts lecturer evaluation rules into an Adaptive Policy executed by specialized AI agents.",
                 "location": {"page": 2, "section": "1. Introduction"},
-                "confidence": 0.94
+                "confidence": 0.94,
+                "authority": "LECTURER"
             }
         ]
 
         return {
             "agent": "innovation",
-            "score": 92.0,
+            "score": 90.0,
             "findings": findings,
-            "summary": "High innovation value demonstrated in multi-agent adaptive policy transformation."
+            "summary": "Claimed contribution identified. Academic novelty evaluation delegated to faculty review."
         }
 
     def _run_consistency_agent(self, doc_data: Dict[str, Any], policy: Dict[str, Any]) -> Dict[str, Any]:
@@ -375,8 +376,9 @@ class ReviewPipeline:
                 severity=f.get("severity", "minor"),
                 claim=f.get("claim", ""),
                 quote=f.get("quote", ""),
-                location_page=f.get("location", {}).get("page", 1),
-                location_section=f.get("location", {}).get("section", "General"),
+                location_page=f.get("location", {}).get("page", 1) if isinstance(f.get("location"), dict) else 1,
+                location_section=f.get("location", {}).get("section", "General") if isinstance(f.get("location"), dict) else "General",
+                authority=f.get("authority") or ("LECTURER" if f.get("agent") == "innovation" else "AUTOMATIC"),
                 evidence_sufficient=f.get("evidence_sufficient", True),
                 confidence=f.get("confidence", 0.9)
             )

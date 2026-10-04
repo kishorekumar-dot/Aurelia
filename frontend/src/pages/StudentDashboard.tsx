@@ -6,8 +6,18 @@ import { getActiveReview, type ReviewState } from '../utils/storage';
 
 export default function StudentDashboard() {
   const [review, setReview] = useState<ReviewState>(getActiveReview());
+  const [candidateName, setCandidateName] = useState<string>('Alex Rivera');
+  const [candidateDept, setCandidateDept] = useState<string>('Computer Science & AI');
 
   useEffect(() => {
+    try {
+      const auth = localStorage.getItem('aurelia_auth');
+      if (auth) {
+        const parsed = JSON.parse(auth);
+        if (parsed.name) setCandidateName(parsed.name);
+        if (parsed.department) setCandidateDept(parsed.department);
+      }
+    } catch {}
     setReview(getActiveReview());
   }, []);
 
@@ -24,7 +34,7 @@ export default function StudentDashboard() {
           <div>
             <div className="flex items-center gap-3 mb-1">
               <span className="font-mono text-xs text-[#F5A623] tracking-[0.24em] uppercase block">
-                Student Candidate Desk · Reg. No: CS-2024-8831
+                Candidate: {candidateName} · Reg. No: CS-2024-8831
               </span>
               <span className="font-mono text-[0.65rem] px-2 py-0.5 border border-[#7B6CFF]/40 text-[#7B6CFF] bg-[#7B6CFF]/10 uppercase">
                 Active Candidate
@@ -34,7 +44,7 @@ export default function StudentDashboard() {
               {review.title}
             </h1>
             <p className="text-xs font-mono text-[#8A8B98] mt-1.5">
-              Assigned Supervisor: <span className="text-white">Dr. Evelyn Chen</span> · {review.department}
+              Assigned Supervisor: <span className="text-white">Dr. Evelyn Chen</span> · {candidateDept}
             </p>
           </div>
 

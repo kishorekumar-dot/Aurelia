@@ -1,6 +1,3 @@
-# Auto-sync script
-auto_git_sync.ps1
-
 # Virtual environment
 .venv/
 venv/
@@ -41,3 +38,22 @@ frontend/build/
 
 # Outputs
 outputs/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+academic_review.db
+backend/academic_review.db
+
+# Uploads & Temporary files
+uploads/
+backend/uploads/
+*.log
+
+# Sensitive credentials & secrets
+.env*
+!.env.example
+*.pem
+*.key
+*.cert

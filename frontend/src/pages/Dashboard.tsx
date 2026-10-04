@@ -1,128 +1,46 @@
 // src/pages/Dashboard.tsx
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AureliaHeader } from '../components/AureliaHeader';
-import { getActiveReview, type ReviewState } from '../utils/storage';
+import { api } from '../services/api';
 
-interface SubmissionsRecord {
-  id: string;
-  student: string;
-  studentEmail: string;
-  project: string;
-  department: string;
-  version: number;
-  date: string;
-  reviewStatus: 'SUBMITTED' | 'ANALYZING' | 'LECTURER_REVIEW' | 'PUBLISHED' | 'REVISION_REQUESTED';
-  findingsCount: number;
-  isPublished: boolean;
-  routing: 'AUTOMATIC' | 'LECTURER_REVIEW';
-  scores: {
-    format: number;
-    content: number;
-    innovation: number;
-  };
+interface Review {
+  id: number;
+  title: string;
+  student_name: string;
+  status: string;
+  created_at: string;
+  overall_score?: number;
+  format_score?: number;
+  content_score?: number;
+  innovation_score?: number;
+  routing_decision?: string;
+  findings_count?: number;
+  is_published?: boolean;
 }
 
 export default function Dashboard() {
-  const [activeReview] = useState<ReviewState>(getActiveReview());
-  const [selectedFilter, setSelectedFilter] = useState<'ALL' | 'NEEDS_REVIEW' | 'PUBLISHED' | 'RESUBMISSION'>('ALL');
+  const navigate = useNavigate();
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedFilter, setSelectedFilter] = useState<'ALL' | 'NEEDS_REVIEW' | 'PUBLISHED' | 'IN_PROGRESS'>('ALL');
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDept, setNewGroupDept] = useState('Computer Science & Technology');
   const [groupCreatedNotice, setGroupCreatedNotice] = useState<string | null>(null);
 
-  // Dynamic submissions list linking with storage
-  const [submissions, setSubmissions] = useState<SubmissionsRecord[]>([
-    {
-      id: 'REV-2026-081',
-      student: activeReview.author,
-      studentEmail: activeReview.studentEmail,
-      project: activeReview.title,
-      department: activeReview.department,
-      version: activeReview.version,
-      date: activeReview.submissionDate,
-      reviewStatus: activeReview.status,
-      findingsCount: activeReview.findings.length,
-      isPublished: activeReview.isPublished,
-      routing: activeReview.routingDecision,
-      scores: {
-        format: activeReview.formatScore,
-        content: activeReview.contentScore,
-        innovation: activeReview.innovationScore
-      }
-    },
-    {
-      id: 'REV-2026-079',
-      student: 'Priya Sharma',
-      studentEmail: 'priya.sharma@student.cambridge.edu',
-      project: 'Adaptive Traffic Signal Optimization using Deep Reinforcement Learning',
-      department: 'Artificial Intelligence',
-      version: 2,
-      date: '17 SEP 2026',
-      reviewStatus: 'LECTURER_REVIEW',
-      findingsCount: 4,
-      isPublished: false,
-      routing: 'LECTURER_REVIEW',
-      scores: { format: 78, content: 84, innovation: 88 }
-    },
-    {
-      id: 'REV-2026-075',
-      student: 'Liam Vance',
-      studentEmail: 'liam.vance@student.cambridge.edu',
-      project: 'Microgrid Energy Trading on Distributed Ledgers',
-      department: 'Electrical Engineering',
-      version: 1,
-      date: '15 SEP 2026',
-      reviewStatus: 'PUBLISHED',
-      findingsCount: 3,
-      isPublished: true,
-      routing: 'AUTOMATIC',
-      scores: { format: 92, content: 95, innovation: 86 }
-    },
-    {
-      id: 'REV-2026-071',
-      student: 'Elena Rostova',
-      studentEmail: 'elena.rostova@student.cambridge.edu',
-      project: 'Zero-Knowledge Proofs in Decentralized Healthcare Records',
-      department: 'Computer Science',
-      version: 1,
-      date: '12 SEP 2026',
-      reviewStatus: 'PUBLISHED',
-      findingsCount: 5,
-      isPublished: true,
-      routing: 'AUTOMATIC',
-      scores: { format: 96, content: 92, innovation: 95 }
-    },
-    {
-      id: 'REV-2026-068',
-      student: 'Marcus Brody',
-      studentEmail: 'marcus.brody@student.cambridge.edu',
-      project: 'Autonomous Drone Swarm Navigation in GPS-Denied Environments',
-      department: 'Robotics',
-      version: 3,
-      date: '08 SEP 2026',
-      reviewStatus: 'REVISION_REQUESTED',
-      findingsCount: 6,
-      isPublished: false,
-      routing: 'LECTURER_REVIEW',
-      scores: { format: 81, content: 88, innovation: 82 }
-    }
-  ]);
+  const authData = (() => {
+    try { return JSON.parse(localStorage.getItem('aurelia_auth') || '{}'); }
+    catch { return {}; }
+  })();
+
+
 
   useEffect(() => {
-    const current = getActiveReview();
-    setSubmissions(prev => prev.map(s => {
-      if (s.id === 'REV-2026-081') {
-        return {
-          ...s,
-          version: current.version,
-          isPublished: current.isPublished,
-          reviewStatus: current.status,
-          date: current.submissionDate
-        };
-      }
-      return s;
-    }));
+    api.getReviews()
+      .then(data => setReviews(data as unknown as Review[]))
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
 
   const handleCreateGroup = (e: React.FormEvent) => {
@@ -136,13 +54,32 @@ export default function Dashboard() {
     }, 2000);
   };
 
-  const filtered = submissions.filter((r) => {
+  const filtered = reviews.filter((r) => {
     if (selectedFilter === 'ALL') return true;
-    if (selectedFilter === 'NEEDS_REVIEW') return r.routing === 'LECTURER_REVIEW' || !r.isPublished;
-    if (selectedFilter === 'PUBLISHED') return r.isPublished;
-    if (selectedFilter === 'RESUBMISSION') return r.version > 1;
+    if (selectedFilter === 'NEEDS_REVIEW') return r.routing_decision === 'LECTURER' && !r.is_published;
+    if (selectedFilter === 'PUBLISHED') return r.is_published || r.status === 'PUBLISHED';
+    if (selectedFilter === 'IN_PROGRESS') return r.status === 'RUNNING' || r.status === 'PENDING' || r.status === 'SUBMITTED';
     return true;
   });
+
+  const totalStudents = reviews.length;
+  const pendingCount = reviews.filter(r => !r.is_published && r.status !== 'RUNNING').length;
+  const runningCount = reviews.filter(r => r.status === 'RUNNING' || r.status === 'PENDING' || r.status === 'SUBMITTED').length;
+  const needsReviewCount = reviews.filter(r => r.routing_decision === 'LECTURER' && !r.is_published).length;
+  const publishedCount = reviews.filter(r => r.is_published || r.status === 'PUBLISHED').length;
+  const completedCount = reviews.filter(r => r.status === 'COMPLETED').length;
+
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#050508] flex items-center justify-center font-mono text-[#F5A623]">
+        <div className="text-center space-y-3">
+          <div className="w-8 h-8 border-2 border-[#F5A623] border-t-transparent rounded-full animate-spin mx-auto" />
+          Loading review desk...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#050508] text-[#E8E8EE] flex flex-col font-body">
@@ -150,17 +87,17 @@ export default function Dashboard() {
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-6 pt-28 pb-16 space-y-10">
         
-        {/* Header Header */}
+        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[rgba(245,166,35,0.18)] pb-6">
           <div>
             <span className="font-mono text-xs text-[#F5A623] tracking-[0.24em] uppercase block mb-1">
-              Faculty Supervision Terminal · Dr. Evelyn Chen
+              Faculty Supervision Terminal · {authData.name || 'Lecturer'}
             </span>
             <h1 className="font-headline text-3xl md:text-4xl font-light text-white tracking-wide">
               Academic Review Desk
             </h1>
             <p className="text-xs font-mono text-[#8A8B98] mt-1">
-              Active Scope: Computer Science & Engineering Capstones 2026
+              {authData.department ? `${authData.department} Capstones` : 'All Capstones'}
             </p>
           </div>
 
@@ -180,70 +117,22 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* PRD Section 12: 6 Required Dashboard Metrics */}
-        {/* Total Students, Pending Reviews, Reviews In Progress, Needs Lecturer Review, Published Feedback, Resubmissions */}
+        {/* Dashboard Metrics */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pb-2">
-          
-          <div className="mounted-document p-4 space-y-1">
-            <span className="font-headline text-[0.62rem] tracking-[0.18em] text-[#8A8B98] uppercase block">
-              Total Students
-            </span>
-            <div className="font-headline text-3xl font-light text-white">
-              24
+          {[
+            { label: 'Total Reviews', val: totalStudents, color: 'text-white', sub: 'Submitted manuscripts' },
+            { label: 'Pending', val: pendingCount, color: 'text-[#F5A623]', sub: 'Awaiting analysis' },
+            { label: 'In Progress', val: runningCount, color: 'text-[#7B6CFF]', sub: 'Multi-agent pipeline' },
+            { label: 'Needs Review', val: needsReviewCount, color: 'text-[#C45C4A]', sub: 'Lecturer audit required' },
+            { label: 'Published', val: publishedCount, color: 'text-[#22C55E]', sub: 'Released to student' },
+            { label: 'Completed', val: completedCount, color: 'text-[#6EC8FF]', sub: 'Pipeline finished' },
+          ].map(({ label, val, color, sub }) => (
+            <div key={label} className="mounted-document p-4 space-y-1">
+              <span className="font-headline text-[0.62rem] tracking-[0.18em] text-[#8A8B98] uppercase block">{label}</span>
+              <div className={`font-headline text-3xl font-light ${color}`}>{String(val).padStart(2, '0')}</div>
+              <span className="font-mono text-[0.62rem] text-[#6A6B78] block">{sub}</span>
             </div>
-            <span className="font-mono text-[0.62rem] text-[#6A6B78] block">Assigned M.Sc candidates</span>
-          </div>
-
-          <div className="mounted-document p-4 space-y-1">
-            <span className="font-headline text-[0.62rem] tracking-[0.18em] text-[#8A8B98] uppercase block">
-              Pending Reviews
-            </span>
-            <div className="font-headline text-3xl font-light text-[#F5A623]">
-              04
-            </div>
-            <span className="font-mono text-[0.62rem] text-[#6A6B78] block">Awaiting initial checks</span>
-          </div>
-
-          <div className="mounted-document p-4 space-y-1">
-            <span className="font-headline text-[0.62rem] tracking-[0.18em] text-[#8A8B98] uppercase block">
-              In Progress
-            </span>
-            <div className="font-headline text-3xl font-light text-[#7B6CFF]">
-              02
-            </div>
-            <span className="font-mono text-[0.62rem] text-[#6A6B78] block">Multi-agent pipeline</span>
-          </div>
-
-          <div className="mounted-document p-4 space-y-1">
-            <span className="font-headline text-[0.62rem] tracking-[0.18em] text-[#8A8B98] uppercase block">
-              Needs Lecturer Review
-            </span>
-            <div className="font-headline text-3xl font-light text-[#C45C4A]">
-              03
-            </div>
-            <span className="font-mono text-[0.62rem] text-[#6A6B78] block">Level 1 academic audit</span>
-          </div>
-
-          <div className="mounted-document p-4 space-y-1">
-            <span className="font-headline text-[0.62rem] tracking-[0.18em] text-[#8A8B98] uppercase block">
-              Published Feedback
-            </span>
-            <div className="font-headline text-3xl font-light text-[#22C55E]">
-              15
-            </div>
-            <span className="font-mono text-[0.62rem] text-[#6A6B78] block">Released to student desk</span>
-          </div>
-
-          <div className="mounted-document p-4 space-y-1">
-            <span className="font-headline text-[0.62rem] tracking-[0.18em] text-[#8A8B98] uppercase block">
-              Resubmissions
-            </span>
-            <div className="font-headline text-3xl font-light text-[#6EC8FF]">
-              03
-            </div>
-            <span className="font-mono text-[0.62rem] text-[#6A6B78] block">Version 2+ revisions</span>
-          </div>
-
+          ))}
         </div>
 
         {/* 3-Column Layout: Left Spine + Center Submissions Ledger + Right Live Policy Snapshot */}
@@ -263,7 +152,7 @@ export default function Dashboard() {
                     : 'border-transparent text-[#8A8B98] hover:text-white'
                 }`}
               >
-                All Submissions ({submissions.length})
+                All Reviews ({reviews.length})
               </button>
               <button
                 onClick={() => setSelectedFilter('NEEDS_REVIEW')}
@@ -273,7 +162,7 @@ export default function Dashboard() {
                     : 'border-transparent text-[#8A8B98] hover:text-white'
                 }`}
               >
-                Needs Review (2)
+                Needs Review ({needsReviewCount})
               </button>
               <button
                 onClick={() => setSelectedFilter('PUBLISHED')}
@@ -283,17 +172,17 @@ export default function Dashboard() {
                     : 'border-transparent text-[#8A8B98] hover:text-white'
                 }`}
               >
-                Published (2)
+                Published ({publishedCount})
               </button>
               <button
-                onClick={() => setSelectedFilter('RESUBMISSION')}
+                onClick={() => setSelectedFilter('IN_PROGRESS')}
                 className={`w-full text-left font-headline text-xs tracking-[0.16em] uppercase py-2.5 px-3 border-l-2 transition-colors ${
-                  selectedFilter === 'RESUBMISSION'
+                  selectedFilter === 'IN_PROGRESS'
                     ? 'border-[#6EC8FF] text-[#6EC8FF] bg-white/[0.02]'
                     : 'border-transparent text-[#8A8B98] hover:text-white'
                 }`}
               >
-                Resubmissions (2)
+                In Progress ({runningCount})
               </button>
             </div>
 
@@ -326,82 +215,77 @@ export default function Dashboard() {
               <table className="w-full text-left border-collapse font-body">
                 <thead>
                   <tr className="border-b border-[rgba(245,166,35,0.18)] bg-[#070814] font-headline text-[0.65rem] tracking-[0.18em] uppercase text-[#7A7B8A]">
-                    <th className="py-3 px-3">Student Candidate</th>
-                    <th className="py-3 px-3">Project & Version</th>
+                    <th className="py-3 px-3">Student</th>
+                    <th className="py-3 px-3">Project</th>
                     <th className="py-3 px-3">Date</th>
-                    <th className="py-3 px-2">Review Status</th>
-                    <th className="py-3 px-2">Findings</th>
-                    <th className="py-3 px-3">Published Status</th>
+                    <th className="py-3 px-2">Status</th>
+                    <th className="py-3 px-2">Score</th>
+                    <th className="py-3 px-3">Published</th>
                     <th className="py-3 px-3">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
-                  {filtered.map((item) => (
-                    <tr key={item.id} className="hover:bg-white/[0.02] transition-colors group">
-                      {/* 1. Student */}
+                  {filtered.length === 0 && (
+                    <tr><td colSpan={7} className="py-12 text-center font-mono text-xs text-[#8A8B98]">
+                      No reviews found. Upload a manuscript to get started.
+                    </td></tr>
+                  )}
+                  {filtered.map((item) => {
+                    const statusColor = item.status === 'COMPLETED' ? 'border-[#22C55E]/40 text-[#22C55E] bg-[#22C55E]/10'
+                      : item.status === 'RUNNING' ? 'border-[#7B6CFF]/40 text-[#7B6CFF] bg-[#7B6CFF]/10'
+                      : item.status === 'FAILED' ? 'border-[#EF4444]/40 text-[#EF4444] bg-[#EF4444]/10'
+                      : 'border-[#F5A623]/30 text-[#F5A623] bg-[#F5A623]/10';
+                    const reviewLink = item.status === 'COMPLETED' || item.status === 'PUBLISHED'
+                      ? `/reviews/${item.id}` : `/reviews/${item.id}/live`;
+                    return (
+                    <tr key={item.id} className="hover:bg-white/[0.02] transition-colors group cursor-pointer" onClick={() => navigate(reviewLink)}>
                       <td className="py-4 px-3 text-xs text-white">
-                        <div className="font-headline font-normal">{item.student}</div>
-                        <span className="font-mono text-[0.65rem] text-[#6A6B78]">{item.department}</span>
+                        <div className="font-headline font-normal">{item.student_name}</div>
                       </td>
 
-                      {/* 2. Project & Version */}
                       <td className="py-4 px-3">
-                        <Link
-                          to="/reviews/1"
-                          className="font-headline text-xs text-white group-hover:text-[#F5A623] transition-colors block line-clamp-1"
-                        >
-                          {item.project}
-                        </Link>
-                        <span className="font-mono text-[0.68rem] text-[#F5A623]">
-                          Version {item.version}.0
+                        <span className="font-headline text-xs text-white group-hover:text-[#F5A623] transition-colors block line-clamp-1">
+                          {item.title}
                         </span>
                       </td>
 
-                      {/* 3. Date */}
                       <td className="py-4 px-3 font-mono text-[0.7rem] text-[#7A7B8A] whitespace-nowrap">
-                        {item.date}
+                        {item.created_at ? new Date(item.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase() : '—'}
                       </td>
 
-                      {/* 4. Review Status */}
                       <td className="py-4 px-2">
-                        <span className={`inline-block font-mono text-[0.62rem] tracking-wider px-2 py-0.5 border ${
-                          item.routing === 'AUTOMATIC'
-                            ? 'border-[#F5A623]/30 text-[#F5A623] bg-[#F5A623]/10'
-                            : 'border-[#C45C4A]/40 text-[#C45C4A] bg-[#C45C4A]/10'
-                        } uppercase whitespace-nowrap`}>
-                          {item.routing === 'AUTOMATIC' ? 'AUTO AUDIT' : 'LECTURER AUDIT'}
+                        <span className={`inline-block font-mono text-[0.62rem] tracking-wider px-2 py-0.5 border ${statusColor} uppercase whitespace-nowrap`}>
+                          {item.status}
                         </span>
                       </td>
 
-                      {/* 5. Findings Count */}
                       <td className="py-4 px-2 font-mono text-xs text-[#A4A5B6]">
-                        {item.findingsCount} items
+                        {item.overall_score != null ? `${Math.round(item.overall_score)}%` : '—'}
                       </td>
 
-                      {/* 6. Published Status (PRD Principle 3.2) */}
                       <td className="py-4 px-3">
-                        {item.isPublished ? (
+                        {item.is_published || item.status === 'PUBLISHED' ? (
                           <span className="inline-block font-mono text-[0.62rem] px-2 py-0.5 border border-[#22C55E]/40 text-[#22C55E] bg-[#22C55E]/10 uppercase whitespace-nowrap">
                             ✓ PUBLISHED
                           </span>
                         ) : (
                           <span className="inline-block font-mono text-[0.62rem] px-2 py-0.5 border border-[#F5A623]/30 text-[#F5A623] bg-[#F5A623]/10 uppercase whitespace-nowrap">
-                            UNPUBLISHED
+                            {item.status === 'RUNNING' ? 'ANALYZING' : 'UNPUBLISHED'}
                           </span>
                         )}
                       </td>
 
-                      {/* 7. Action */}
                       <td className="py-4 px-3">
                         <Link
-                          to="/reviews/1"
+                          to={reviewLink}
                           className="font-headline text-[0.68rem] tracking-wider uppercase text-[#F5A623] hover:underline whitespace-nowrap"
                         >
-                          Inspect →
+                          {item.status === 'COMPLETED' ? 'Inspect →' : item.status === 'RUNNING' ? 'Monitor →' : 'View →'}
                         </Link>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

@@ -7,14 +7,23 @@ export function AureliaHeader() {
   const navigate = useNavigate();
   
   const [role, setRole] = useState<'LECTURER' | 'STUDENT'>('LECTURER');
+  const [currentUser, setCurrentUser] = useState<{ name?: string; email?: string; role?: string } | null>(null);
+  const [hasToken, setHasToken] = useState(false);
 
   useEffect(() => {
     try {
-      const auth = localStorage.getItem('aurelia_auth');
+      const token = localStorage.getItem('academic_review_token') || localStorage.getItem('aurelia_token');
+      setHasToken(!!token);
+
+      const auth = localStorage.getItem('aurelia_auth') || localStorage.getItem('aurelia_user');
       if (auth) {
         const parsed = JSON.parse(auth);
-        if (parsed.role === 'STUDENT') {
+        setCurrentUser(parsed);
+        if (parsed.role === 'STUDENT' || parsed.role === 'student') {
           setRole('STUDENT');
+          return;
+        } else if (parsed.role === 'LECTURER' || parsed.role === 'lecturer' || parsed.role === 'faculty') {
+          setRole('LECTURER');
           return;
         }
       }
@@ -28,13 +37,24 @@ export function AureliaHeader() {
     }
   }, [location.pathname]);
 
+  const handleLogout = () => {
+    localStorage.removeItem('academic_review_token');
+    localStorage.removeItem('aurelia_token');
+    localStorage.removeItem('aurelia_auth');
+    localStorage.removeItem('aurelia_user');
+    setHasToken(false);
+    setCurrentUser(null);
+    navigate('/login');
+  };
+
   const toggleRole = () => {
     const nextRole = role === 'LECTURER' ? 'STUDENT' : 'LECTURER';
     setRole(nextRole);
-    localStorage.setItem('aurelia_auth', JSON.stringify({
-      email: nextRole === 'STUDENT' ? 'alex.rivera@student.cambridge.edu' : 'dr.chen@cambridge.edu',
-      role: nextRole
-    }));
+    if (currentUser) {
+      const updated = { ...currentUser, role: nextRole };
+      setCurrentUser(updated);
+      localStorage.setItem('aurelia_auth', JSON.stringify(updated));
+    }
 
     if (nextRole === 'STUDENT') {
       navigate('/student');
@@ -99,11 +119,11 @@ export function AureliaHeader() {
           })}
         </nav>
 
-        {/* Right: Role Switcher & Persona Badge (PRD Section 7) */}
-        <div className="flex items-center gap-4">
+        {/* Right: Role Switcher, Persona Badge & Sign In/Out */}
+        <div className="flex items-center gap-3">
           <button
             onClick={toggleRole}
-            className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] border border-white/10 hover:border-[#F5A623] transition-colors rounded-none font-mono text-[0.68rem] text-[#C4C5D6] cursor-pointer"
+            className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] border border-white/10 hover:border-[#F5A623] transition-colors rounded-none font-mono text-[0.68rem] text-[#C4C5D6] cursor-pointer"
             title="Toggle between Lecturer and Student mode"
           >
             <div className={`w-2 h-2 rounded-full ${role === 'LECTURER' ? 'bg-[#F5A623]' : 'bg-[#7B6CFF]'}`} />
@@ -111,12 +131,40 @@ export function AureliaHeader() {
             <span className="text-[#8A8B98] ml-1">⇄ Switch</span>
           </button>
 
-          <Link
-            to={role === 'LECTURER' ? '/dashboard' : '/student'}
-            className="btn-terracotta px-5 py-2 text-xs font-headline tracking-[0.16em] uppercase shadow-lg hidden sm:inline-block"
-          >
-            {role === 'LECTURER' ? 'Faculty Desk' : 'Student Desk'}
-          </Link>
+          {hasToken ? (
+            <div className="flex items-center gap-3">
+              <div className="hidden md:flex flex-col text-right">
+                <span className="font-mono text-xs text-white font-medium truncate max-w-[120px]">
+                  {currentUser?.name || currentUser?.email || 'User'}
+                </span>
+                <span className="font-mono text-[0.62rem] text-[#F5A623] uppercase">
+                  {role}
+                </span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="px-3 py-1.5 border border-red-500/30 hover:border-red-400 bg-red-500/10 hover:bg-red-500/20 text-red-300 font-mono text-[0.68rem] uppercase tracking-wider transition-colors cursor-pointer"
+                title="Sign out"
+              >
+                Sign Out
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Link
+                to="/login"
+                className="px-3.5 py-1.5 border border-[#F5A623]/40 text-[#F5A623] hover:bg-[#F5A623]/10 font-mono text-xs uppercase tracking-wider transition-colors"
+              >
+                Sign In
+              </Link>
+              <Link
+                to="/register"
+                className="btn-terracotta px-3.5 py-1.5 font-headline text-xs tracking-wider uppercase hidden sm:inline-block"
+              >
+                Register
+              </Link>
+            </div>
+          )}
         </div>
 
       </div>

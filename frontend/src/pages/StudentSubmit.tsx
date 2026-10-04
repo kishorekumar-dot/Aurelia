@@ -3,33 +3,57 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AureliaHeader } from '../components/AureliaHeader';
 import { getActiveReview, submitRevision } from '../utils/storage';
+import { api } from '../services/api';
 
 export default function StudentSubmit() {
   const navigate = useNavigate();
   const currentReview = getActiveReview();
   const nextVersion = currentReview.version + 1;
 
-  const [fileName, setFileName] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [changelog, setChangelog] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successNotice, setSuccessNotice] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fileName) {
-      alert('Please select or drop your manuscript document (PDF or DOCX).');
+    if (!selectedFile) {
+      setError('Please select or drop your manuscript document file (PDF or DOCX).');
       return;
     }
     setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 900));
+    setError(null);
 
-    submitRevision(fileName, changelog || 'Addressed figure captions and bibliography formatting as requested.');
-    setIsSubmitting(false);
-    setSuccessNotice(true);
+    try {
+      // 1. Upload manuscript file to backend
+      const uploadedDoc = await api.uploadDocument(selectedFile, "STUDENT_PAPER");
 
-    setTimeout(() => {
-      navigate('/student');
-    }, 1500);
+      // 2. Initiate pipeline review
+      const reviewResult = await api.createReview(
+        uploadedDoc.id,
+        currentReview.title || selectedFile.name.replace(/\.[^/.]+$/, ''),
+        currentReview.author || 'Student Candidate'
+      );
+
+      // 3. Keep local storage in sync
+      submitRevision(selectedFile.name, changelog || 'Revision submitted with updated formatting and citations.');
+
+      setIsSubmitting(false);
+      setSuccessNotice(true);
+
+      setTimeout(() => {
+        if (reviewResult && reviewResult.id) {
+          navigate(`/reviews/${reviewResult.id}/live`);
+        } else {
+          navigate('/student');
+        }
+      }, 1200);
+    } catch (err: unknown) {
+      setIsSubmitting(false);
+      const msg = err instanceof Error ? err.message : 'Failed to submit document to review engine';
+      setError(msg);
+    }
   };
 
   return (
@@ -70,9 +94,12 @@ export default function StudentSubmit() {
             <div className="border border-dashed border-[rgba(245,166,35,0.3)] hover:border-[#F5A623] p-10 text-center transition-colors bg-[#070814] relative rounded-none cursor-pointer">
               <input
                 type="file"
-                accept=".pdf,.docx"
+                accept=".pdf,.docx,.doc"
                 onChange={(e) => {
-                  if (e.target.files?.[0]) setFileName(e.target.files[0].name);
+                  if (e.target.files?.[0]) {
+                    setSelectedFile(e.target.files[0]);
+                    setError(null);
+                  }
                 }}
                 className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
               />
@@ -80,37 +107,12 @@ export default function StudentSubmit() {
                 <span className="text-xl text-[#F5A623]">↑</span>
               </div>
               <div className="font-mono text-sm text-[#F5A623] tracking-wider mb-1 font-medium">
-                {fileName ? `READY: ${fileName}` : 'CLICK OR DRAG REVISED PDF / DOCX HERE'}
+                {selectedFile ? `READY: ${selectedFile.name} (${(selectedFile.size / 1024).toFixed(1)} KB)` : 'CLICK OR DRAG REVISED PDF / DOCX HERE'}
               </div>
               <div className="font-mono text-[0.68rem] text-[#6A6B78]">
-                Strict layout preservation · Automated verification cycle runs upon receipt
+                Real document ingestion · Automatic pipeline analysis triggers on submission
               </div>
             </div>
-          </div>
-
-          {/* Quick Pre-fills for Demo */}
-          <div className="flex flex-wrap gap-2 text-xs font-mono">
-            <span className="text-[#8A8B98] self-center mr-1">Demo sample files:</span>
-            <button
-              type="button"
-              onClick={() => {
-                setFileName(`alex_rivera_thesis_v${nextVersion}_revised.pdf`);
-                setChangelog('1. Fixed Figure 7 caption below diagram.\n2. Added IEEE 802.15.4 standard to References bibliography as [34].\n3. Inserted Zenodo DOI for the 142k sensor dataset in Section 4.3.');
-              }}
-              className="px-3 py-1 bg-white/[0.04] border border-white/10 hover:border-[#F5A623] text-white transition-colors"
-            >
-              alex_rivera_thesis_v{nextVersion}_revised.pdf
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setFileName(`alex_rivera_thesis_v${nextVersion}.docx`);
-                setChangelog('Applied typography modifications and added empirical dataset DOI link.');
-              }}
-              className="px-3 py-1 bg-white/[0.04] border border-white/10 hover:border-[#F5A623] text-white transition-colors"
-            >
-              alex_rivera_thesis_v{nextVersion}.docx
-            </button>
           </div>
 
           {/* Revision Changelog Notes */}
@@ -121,7 +123,7 @@ export default function StudentSubmit() {
             <textarea
               rows={4}
               required
-              placeholder="Detail specific modifications made in this version (e.g. Added Figure 7 caption, added IEEE citation to bibliography, inserted Zenodo repository link)..."
+              placeholder="Detail specific modifications made in this version (e.g. Added Figure 7 caption, added IEEE citation to bibliography, inserted dataset DOI link)..."
               value={changelog}
               onChange={(e) => setChangelog(e.target.value)}
               className="w-full bg-[#070814] border border-white/10 px-4 py-3 text-xs text-white focus:outline-none focus:border-[#F5A623] font-body leading-relaxed"
@@ -134,10 +136,15 @@ export default function StudentSubmit() {
               Automated Notification Protocol
             </div>
             <p>
-              Submitting will automatically notify supervisor <span className="text-white">Dr. Evelyn Chen</span> that Version {nextVersion}.0 has been uploaded.
-              Background verification checks will execute against your updated document.
+              Submitting will automatically upload your manuscript to the Aurelia analysis engine and notify supervisor <span className="text-white">Dr. Evelyn Chen</span> that Version {nextVersion}.0 is ready for evaluation.
             </p>
           </div>
+
+          {error && (
+            <div className="p-3 border border-red-500/30 bg-red-500/10 font-mono text-xs text-red-400">
+              {error}
+            </div>
+          )}
 
           {/* Submit Button */}
           <div className="pt-2">
@@ -146,7 +153,7 @@ export default function StudentSubmit() {
               disabled={isSubmitting || successNotice}
               className="w-full btn-terracotta py-3.5 text-xs tracking-[0.22em] uppercase font-semibold cursor-pointer"
             >
-              {isSubmitting ? 'Transmitting Revision...' : successNotice ? '✓ Revision Registered!' : `Transmit Version ${nextVersion}.0 for Faculty Review`}
+              {isSubmitting ? 'Transmitting & Analyzing...' : successNotice ? '✓ Revision Registered!' : `Transmit Version ${nextVersion}.0 for Faculty Review`}
             </button>
           </div>
         </form>

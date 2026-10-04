@@ -1,24 +1,77 @@
 // src/pages/NewReview.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AureliaHeader } from '../components/AureliaHeader';
 import { ParticleOrb3D } from '../components/ParticleOrb3D';
+import { api } from '../services/api';
+
+interface Rule {
+  id: number;
+  title: string;
+  description: string;
+  version: string;
+}
 
 export default function NewReview() {
   const navigate = useNavigate();
-  const [title, setTitle] = useState('Smart Storage Monitoring System using IoT and Machine Learning');
-  const [author, setAuthor] = useState('Alex Rivera');
-  const [department, setDepartment] = useState('Computer Science');
-  const [policyId, setPolicyId] = useState('POL-CS-01');
-  const [fileName, setFileName] = useState('alex_rivera_thesis_final.pdf');
+  const [title, setTitle] = useState('');
+  const [author, setAuthor] = useState('');
+  const [department, setDepartment] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileName, setFileName] = useState('');
+  const [selectedRuleId, setSelectedRuleId] = useState<number | undefined>(undefined);
+  const [rules, setRules] = useState<Rule[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.getRules().then(setRules).catch(console.error);
+  }, []);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setFileName(file.name);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedFile) {
+      setError('Please select a manuscript file (PDF or DOCX).');
+      return;
+    }
+    if (!title.trim()) {
+      setError('Please enter the project title.');
+      return;
+    }
+    if (!author.trim()) {
+      setError('Please enter the candidate author name.');
+      return;
+    }
     setIsSubmitting(true);
-    // Give time to show orb intensifying
-    await new Promise((r) => setTimeout(r, 1200));
-    navigate('/reviews/1/live');
+    setError(null);
+
+    try {
+      // Step 1: Upload the document
+      const docResp = await api.uploadDocument(selectedFile, "STUDENT_PAPER");
+
+      // Step 2: Create the review
+      const reviewResp = await api.createReview(
+        docResp.id,
+        title,
+        author,
+        selectedRuleId
+      );
+
+      // Step 3: Navigate to the live pipeline monitor
+      navigate(`/reviews/${reviewResp.id}/live`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Review creation failed';
+      setError(msg);
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -55,11 +108,12 @@ export default function NewReview() {
                   <input
                     type="file"
                     accept=".pdf,.docx"
-                    onChange={(e) => {
-                      if (e.target.files?.[0]) setFileName(e.target.files[0].name);
-                    }}
+                    onChange={handleFileChange}
                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                   />
+                  <div className="w-10 h-10 rounded-full border border-[rgba(245,166,35,0.4)] flex items-center justify-center mx-auto mb-2">
+                    <span className="text-lg text-[#F5A623]">↑</span>
+                  </div>
                   <div className="font-mono text-xs text-[#F5A623] tracking-wider mb-1">
                     {fileName ? `LOADED: ${fileName}` : 'CLICK OR DRAG PDF / DOCX HERE'}
                   </div>
@@ -79,6 +133,7 @@ export default function NewReview() {
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Enter the project or dissertation title"
                   className="w-full bg-[#070814] border border-white/10 px-4 py-2.5 text-sm font-headline text-white focus:outline-none focus:border-[#F5A623]"
                 />
               </div>
@@ -94,6 +149,7 @@ export default function NewReview() {
                     required
                     value={author}
                     onChange={(e) => setAuthor(e.target.value)}
+                    placeholder="Student full name"
                     className="w-full bg-[#070814] border border-white/10 px-4 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-[#F5A623]"
                   />
                 </div>
@@ -104,29 +160,36 @@ export default function NewReview() {
                   </label>
                   <input
                     type="text"
-                    required
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
+                    placeholder="e.g. Computer Science"
                     className="w-full bg-[#070814] border border-white/10 px-4 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-[#F5A623]"
                   />
                 </div>
               </div>
 
-              {/* Policy Selection */}
+              {/* Rule Selection */}
               <div>
                 <label className="block font-headline text-xs tracking-[0.18em] text-[#8A8B98] uppercase mb-1.5">
-                  Governing Adaptive Policy
+                  Governing Assessment Rule
                 </label>
                 <select
-                  value={policyId}
-                  onChange={(e) => setPolicyId(e.target.value)}
+                  value={selectedRuleId ?? ''}
+                  onChange={(e) => setSelectedRuleId(e.target.value ? Number(e.target.value) : undefined)}
                   className="w-full bg-[#070814] border border-white/10 px-4 py-2.5 text-xs font-mono text-[#F5A623] focus:outline-none focus:border-[#F5A623]"
                 >
-                  <option value="POL-CS-01">CS Postgrad Rigorous v4.2 (Format · Empirical · Novelty)</option>
-                  <option value="POL-ENG-02">Engineering Capstone Standard (Safety · Datasets · Schemas)</option>
-                  <option value="POL-RES-03">Pure Research Dissertation (Literature Delta · Peer Baseline)</option>
+                  <option value="">— Use default institutional rule —</option>
+                  {rules.map(r => (
+                    <option key={r.id} value={r.id}>{r.title} (v{r.version})</option>
+                  ))}
                 </select>
               </div>
+
+              {error && (
+                <div className="p-3 border border-red-500/30 bg-red-500/10 font-mono text-xs text-red-400">
+                  {error}
+                </div>
+              )}
 
               <div className="pt-2">
                 <button
@@ -134,13 +197,13 @@ export default function NewReview() {
                   disabled={isSubmitting}
                   className="w-full btn-terracotta py-3.5 text-xs tracking-[0.22em] uppercase font-semibold cursor-pointer"
                 >
-                  {isSubmitting ? 'Igniting Verification Mesh...' : 'Dispatch to Review Pipeline'}
+                  {isSubmitting ? 'Uploading & Initiating Pipeline...' : 'Dispatch to Review Pipeline'}
                 </button>
               </div>
             </form>
           </div>
 
-          {/* Right: Particle Orb that intensifies when running */}
+          {/* Right: Particle Orb */}
           <div className="lg:col-span-5 flex flex-col items-center justify-center text-center space-y-4">
             <div className="relative">
               <ParticleOrb3D
@@ -149,7 +212,7 @@ export default function NewReview() {
               />
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                 <span className="font-mono text-[0.68rem] text-[#F5A623] tracking-[0.24em] uppercase">
-                  {isSubmitting ? 'EXECUTION IN FLIGHT' : 'ORB STANDBY'}
+                  {isSubmitting ? 'UPLOAD IN PROGRESS' : 'ORB STANDBY'}
                 </span>
               </div>
             </div>

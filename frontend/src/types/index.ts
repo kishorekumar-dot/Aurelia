@@ -59,14 +59,24 @@ export interface Policy {
 
 export interface Review {
   id: number;
-  project_title: string;
+  title?: string;
+  project_title?: string;
   student_name: string;
-  department: string;
-  academic_year: string;
-  status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
-  document_id: number;
+  department?: string;
+  academic_year?: string;
+  status: string;
+  current_stage?: string;
+  overall_score?: number;
+  format_score?: number;
+  content_score?: number;
+  innovation_score?: number;
+  consistency_score?: number;
+  confidence_score?: number;
+  routing_decision?: string;
+  document_id?: number;
   document_filename?: string;
   created_at?: string;
+  completed_at?: string;
   finding_count?: number;
   verified_count?: number;
   needs_review_count?: number;

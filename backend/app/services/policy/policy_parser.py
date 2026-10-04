@@ -47,7 +47,6 @@ def parse_policy(natural_rule: str) -> Dict[str, Any]:
         }
         
     if "references" in rule_lower and "least" in rule_lower:
-        # crude extraction
         import re
         nums = re.findall(r'\d+', natural_rule)
         min_ref = int(nums[0]) if nums else 5
@@ -60,7 +59,23 @@ def parse_policy(natural_rule: str) -> Dict[str, Any]:
             "status": "ACTIVE",
             "original_rule": natural_rule
         }
-        
+
+    if "contain" in rule_lower or "include" in rule_lower or "section" in rule_lower:
+        standard_sections = ["Introduction", "Literature Review", "Related Work", "Methodology", "System Architecture", "Results", "Evaluation", "Conclusion", "References"]
+        detected = [s for s in standard_sections if s.lower() in rule_lower]
+        if detected:
+            return {
+                "rule_id": "SEC001",
+                "policy_id": "SEC001",
+                "category": "structure",
+                "requirement": "required_sections",
+                "sections": detected,
+                "severity": "high",
+                "obligation": "MANDATORY",
+                "status": "ACTIVE",
+                "original_rule": natural_rule
+            }
+
     return {
         "status": "UNSUPPORTED",
         "reason": "Could not parse rule deterministically (mock behavior)",
