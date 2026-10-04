@@ -27,10 +27,10 @@ services:
       - key: JWT_SECRET
         generateValue: true
 
-      # ── CORS: fill in after you know your Vercel URL ─────────────────
-      # Example: https://aurelia-abc.vercel.app
+      # ── CORS: Vercel frontend URL ─────────────────────────────────────
+      # Update this with your actual Vercel URL after frontend is deployed
       - key: CORS_EXTRA_ORIGINS
-        value: ""
+        value: "https://aurelia-1md3.onrender.com"
 
       # ── OpenRouter LLM ───────────────────────────────────────────────
       - key: OPENROUTER_BASE_URL
