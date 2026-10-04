@@ -2,6 +2,7 @@ import os
 import secrets
 from pathlib import Path
 from typing import List, Optional
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # config.py lives at: backend/app/core/config.py
@@ -24,7 +25,10 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_HOURS: int = 24
 
-    # CORS settings: strict origin whitelist
+    # CORS settings: static defaults + runtime-injectable extras
+    # Set CORS_EXTRA_ORIGINS in .env as a comma-separated list of URLs to
+    # add production / Vercel / staging origins without touching code.
+    # Example: CORS_EXTRA_ORIGINS=https://aurelia-abc123.vercel.app,https://yourdomain.com
     CORS_ORIGINS: List[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
@@ -33,6 +37,22 @@ class Settings(BaseSettings):
         "http://localhost:8000",
         "http://127.0.0.1:8000",
     ]
+
+    # Comma-separated extra origins injected via environment (e.g. Vercel URLs)
+    CORS_EXTRA_ORIGINS: str = ""
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v):
+        """Accept either a list or a comma-separated string."""
+        if isinstance(v, str):
+            return [o.strip() for o in v.split(",") if o.strip()]
+        return v
+
+    def get_all_cors_origins(self) -> List[str]:
+        """Return static defaults merged with any CORS_EXTRA_ORIGINS."""
+        extra = [o.strip() for o in self.CORS_EXTRA_ORIGINS.split(",") if o.strip()]
+        return list(dict.fromkeys(self.CORS_ORIGINS + extra))  # preserve order, dedupe
 
     # File Upload Security
     MAX_UPLOAD_SIZE_BYTES: int = 25 * 1024 * 1024  # 25MB limit

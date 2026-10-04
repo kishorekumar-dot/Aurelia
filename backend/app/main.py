@@ -63,10 +63,10 @@ app.add_middleware(RateLimiterMiddleware)
 # 2. Security response headers
 app.add_middleware(SecurityHeadersMiddleware)
 
-# 3. CORS — strict whitelist, no wildcard origins in production
+# 3. CORS — static whitelist + runtime-injectable CORS_EXTRA_ORIGINS env var
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=settings.get_all_cors_origins(),
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
