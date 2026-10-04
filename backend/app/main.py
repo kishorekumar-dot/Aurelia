@@ -16,6 +16,9 @@ from app.database.database import engine, Base
 from app.database import models
 from app.database.seed import seed_db
 
+# Ensure upload directory exists (critical on Render where /tmp/uploads may not exist)
+settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
 # -------------------------------------------------------------------
 # Structured logging
 # -------------------------------------------------------------------

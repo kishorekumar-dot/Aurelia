@@ -11,14 +11,25 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
 PROJECT_DIR = BACKEND_DIR.parent  # The workspace root (c:\acadamic-review-ai)
 DEFAULT_DB_PATH = (BACKEND_DIR / "academic_review.db").resolve()
 
+# On Render (production) there is no .env file — load from env vars only.
+# Locally, load from the project-root .env file.
+_ENV_FILE = str(PROJECT_DIR / ".env") if (PROJECT_DIR / ".env").exists() else None
+
+# In production (Render) SQLite must live in /tmp (ephemeral but works for demos).
+_PRODUCTION_DB = "/tmp/academic_review.db"
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "AURELIA — Academic Review AI"
     API_V1_STR: str = "/api"
     ENVIRONMENT: str = "development"
     DEBUG: bool = False  # Debug mode disabled for security
 
-    # Database: Anchored deterministic path
-    DB_URL: str = f"sqlite:///{DEFAULT_DB_PATH}"
+    # Database: use /tmp in production (Render) for SQLite compatibility
+    DB_URL: str = (
+        f"sqlite:///{_PRODUCTION_DB}"
+        if os.environ.get("ENVIRONMENT") == "production"
+        else f"sqlite:///{DEFAULT_DB_PATH}"
+    )
 
     # JWT Authentication & Security
     JWT_SECRET: str = os.environ.get("JWT_SECRET") or os.environ.get("SECRET_KEY") or "aurelia-sec-4f8e21a9c3d7b5601249e0f63a8d1b5c7e92"
@@ -57,7 +68,11 @@ class Settings(BaseSettings):
     # File Upload Security
     MAX_UPLOAD_SIZE_BYTES: int = 25 * 1024 * 1024  # 25MB limit
     ALLOWED_EXTENSIONS: List[str] = [".pdf", ".docx", ".txt"]
-    UPLOAD_DIR: Path = BACKEND_DIR / "uploads"
+    UPLOAD_DIR: Path = (
+        Path("/tmp/uploads")
+        if os.environ.get("ENVIRONMENT") == "production"
+        else BACKEND_DIR / "uploads"
+    )
 
     # Rate Limiting
     RATE_LIMIT_LOGIN_PER_MINUTE: int = 10
@@ -93,10 +108,9 @@ class Settings(BaseSettings):
     AI_TIMEOUT_SECONDS: int = 60
 
     model_config = SettingsConfigDict(
-        env_file=str(PROJECT_DIR / ".env"),
+        env_file=_ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore"
     )
 
 settings = Settings()
-
