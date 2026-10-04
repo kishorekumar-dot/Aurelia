@@ -47,6 +47,8 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3000",
         "http://localhost:8000",
         "http://127.0.0.1:8000",
+        # Production frontend
+        "https://aurelia-d769.vercel.app",
     ]
 
     # Comma-separated extra origins injected via environment (e.g. Vercel URLs)
